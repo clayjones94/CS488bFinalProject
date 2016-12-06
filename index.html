@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="https://d3js.org/d3.v4.min.js"></script>
+    <style>
+        body {font-family: monospace; line-height: 160%; font-size: 18px; }
+        ul {list-style: none; margin: 0; padding: 0;}
+        li {display: inline-block; min-width: 80px; padding: 10px; background-color: #eee; margin: 0;}
+        input {border: 1px dotted #ccc; background: white; font-family: monospace; padding: 10px 20px; font-size: 18px; margin: 20px 10px 20px 0; color: gray;}
+        input:focus { background-color:lightgray; outline: none;}
+    </style>
+</head>
+<body>
+ 	<form name="myform" onSubmit="return handleClick()">
+        <input name="Submit"  type="submit" value="Add to list" >
+        <input type="text" id="myVal" placeholder="Add some text&hellip;">
+    </form>
+
+    <ul></ul>
+	<div	id="visualization_area"></div>	
+	<div	id="text_area"></div>	
+	<script>
+
+		var WIDTH = 900;
+		var HEIGHT = 400;
+	    var MARGINS = {
+	      top: 20,
+	      right: 50,
+	      bottom: 20,
+	      left: 50
+	    };
+
+	    var trumpWords = {};
+	    var hillaryWords = {};
+		var graph;
+		var yValues = [];
+		var xScale;
+		var yScale;
+		var xAxis;
+		var yAxis;
+		var inputText;
+		var inputWords;
+		loadData();
+		presentAllData();
+
+		function loadData () {
+			d3.csv("./trumpWords.csv", function(error, data) {
+				if (error) {
+				  // Handle error if there is any
+					return console.warn(error);
+				}
+			  	formatTrump(data);
+			});
+			d3.csv("./hillaryWords.csv", function(error, data) {
+				if (error) {
+				  // Handle error if there is any
+					return console.warn(error);
+				}
+			  	formatHillary(data);
+			});
+		}
+
+		function formatTrump(data) {
+			for (var i = 0; i < data.length; i++) {
+				var entry = data[i];
+				var word = entry["word"];
+				var weight = entry["weight"];
+				trumpWords[word] = parseFloat(weight);
+			};
+		};
+
+		function formatHillary(data) {
+			for (var i = 0; i < data.length; i++) {
+				var entry = data[i];
+				var word = entry["word"];
+				var weight = entry["weight"];
+				hillaryWords[word] = parseFloat(weight);
+			};
+		};
+
+		function presentAllData() {
+
+		    graph =	d3.select("#visualization_area")										
+				.append("svg")												
+				.attr("width",	WIDTH)												
+				.attr("height",	HEIGHT);	
+
+			xScale = d3.scaleLinear()
+						.range([MARGINS.left, WIDTH - MARGINS.right])
+						.domain([0,100]),
+
+			yScale = d3.scaleLinear()
+						.range([HEIGHT - MARGINS.top, MARGINS.bottom])
+						.domain([-10,10]),
+
+			xAxis = d3.axisBottom(xScale),
+			  
+			yAxis = d3.axisLeft(yScale);
+
+			text_area = d3.select("#text_area")										
+							.append("svg")												
+							.attr("width",	WIDTH)												
+							.attr("height",	120);
+
+			graph.append("svg:g")
+				.attr("class","xaxis")
+				.attr("transform", "translate(0," + (HEIGHT - MARGINS.bottom) + ")")
+			    .call(xAxis);
+
+			graph.append('svg:g')
+				.attr("class","yaxis")
+				.attr("transform", "translate(" + (MARGINS.left) + ",0)")
+			  	.call(yAxis);
+		};
+
+		function displayLines() {
+
+			d3.selectAll("path")
+		        		.remove();
+
+			var maxY = -1;
+			for (var i = 0; i < yValues.length; i++) {
+				var yVal = yValues[i];
+				if (Math.abs(yVal) > maxY) {
+					maxY = Math.abs(yVal);
+					console.log(maxY);
+				};
+			};
+
+			var newxScale = d3.scaleLinear()
+						.range([MARGINS.left, WIDTH - MARGINS.right])
+						.domain([0,yValues.length-1]);
+
+			var newyScale = d3.scaleLinear()
+						.range([HEIGHT - MARGINS.top, MARGINS.bottom])
+						.domain([- maxY - maxY * .1,maxY + maxY * .1]);
+
+			var newxAxis = d3.axisBottom(newxScale);
+			  
+			var newyAxis = d3.axisLeft(newyScale);
+
+		   	var xAx = d3.selectAll(".yaxis")
+		        		.call(newyAxis);
+
+		   	var yAx = d3.selectAll(".xaxis")
+		        		.call(newxAxis);
+
+			var lineGen = d3.line()
+			    .x(function(d, i) {
+			        return newxScale(i);
+			    })
+			    .y(function(d) {
+			        return newyScale(d);
+			    });
+
+			var line = graph.append('path')
+							.attr('d', lineGen(yValues))
+							.attr('stroke', 'purple')
+							.attr('stroke-width', 5)
+							.attr('fill', 'none')
+							.attr('id', "path")
+							.attr('name', name);
+		}
+ 
+        function handleClick(event){
+        	inputText = document.getElementById("myVal").value;
+        	inputWords = [];
+        	inputWords = inputText.split(/[.,\/ -]/);
+            console.log(inputWords);
+            draw(document.getElementById("myVal").value)
+            calculateCandidate();
+            return false;
+        }
+
+        function draw(val){
+
+        }
+
+        function calculateCandidate (){
+        	var trumpCount = 0;
+        	var hillaryCount = 0;
+        	var yValue = 0.0;
+        	yValues = [];
+        	for (var i = 0; i < inputWords.length; i++) {
+        		var word = inputWords[i];
+        		if (word.length < 1) continue;
+        		if (trumpWords[word] != null) {
+        			trumpCount += trumpWords[word];
+        			yValue += trumpWords[word];
+        		} else if (hillaryWords[word] != null) {
+        			hillaryCount += hillaryWords[word];
+        			console.log("Hillary word");
+        			yValue -= hillaryWords[word];
+        		}
+        		yValues[i] = yValue;
+        		console.log()
+        	};
+        	displayLines();
+        }
+
+	</script>
+</body>
+</html>
