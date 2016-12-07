@@ -2,10 +2,11 @@
 <html>
 <head>
 	<script src="https://d3js.org/d3.v4.min.js"></script>
+</script>
     <style>
         body {font-family: monospace; line-height: 160%; font-size: 18px; }
-        ul {list-style: none; margin: 0; padding: 0;}
-        li {display: inline-block; min-width: 80px; padding: 10px; background-color: #eee; margin: 0;}
+        ul {list-style: none; margin: 0; padding: 0; display: inline-block;}
+        li {display: block; min-width: 80px; padding: 10px; margin: 0;}
         input {border: 1px dotted #ccc; background: white; font-family: monospace; padding: 10px 20px; font-size: 18px; margin: 20px 10px 20px 0; color: gray;}
         input:focus { background-color:lightgray; outline: none;}
     </style>
@@ -15,9 +16,9 @@
         <input name="Submit"  type="submit" value="Add to list" >
         <input type="text" id="myVal" placeholder="Add some text&hellip;">
     </form>
-
-    <ul></ul>
 	<div	id="visualization_area"></div>	
+	<ul id="overall_list"></ul>
+	<ul id="individual_list"></ul>
 	<div	id="text_area"></div>	
 	<script>
 
@@ -32,6 +33,8 @@
 
 	    var trumpWords = {};
 	    var hillaryWords = {};
+	    var mostInfluentialWordsAlone = [];
+	    var mostInfluentialWordsOverall = [];
 		var graph;
 		var yValues = [];
 		var xScale;
@@ -41,7 +44,7 @@
 		var inputText;
 		var inputWords;
 		loadData();
-		presentAllData();
+		layoutGraph();
 
 		function loadData () {
 			d3.csv("./trumpWords.csv", function(error, data) {
@@ -78,7 +81,7 @@
 			};
 		};
 
-		function presentAllData() {
+		function layoutGraph() {
 
 		    graph =	d3.select("#visualization_area")										
 				.append("svg")												
@@ -123,7 +126,6 @@
 				var yVal = yValues[i];
 				if (Math.abs(yVal) > maxY) {
 					maxY = Math.abs(yVal);
-					console.log(maxY);
 				};
 			};
 
@@ -166,37 +168,128 @@
         	inputText = document.getElementById("myVal").value;
         	inputWords = [];
         	inputWords = inputText.split(/[.,\/ -]/);
-            console.log(inputWords);
-            draw(document.getElementById("myVal").value)
             calculateCandidate();
+            calculateMostInfluentialWords([hillaryWords, trumpWords]);
+            draw();
             return false;
         }
 
-        function draw(val){
+        function printWords() {
+        	console.log(mostInfluentialWordsAlone);
+        	console.log(mostInfluentialWordsOverall);
+        	for(var val in mostInfluentialWordsAlone){
+        		var wordObj = mostInfluentialWordsAlone[val];
+        		console.log(wordObj.word + " " + wordObj.weight);
+        	}
+        	for(var val in mostInfluentialWordsOverall){
+        		var wordObj = mostInfluentialWordsOverall[val];
+        		console.log(wordObj.word + " " + wordObj.weight);
+        	}
 
         }
 
+        function draw(val){
+        	for(var val in mostInfluentialWordsAlone){
+        		var wordObj = mostInfluentialWordsAlone[val];
+        		console.log(wordObj.word + " " + wordObj.weight);
+        		d3.select("body").select("#individual_list").append("li");
+        	}
+        	var p = d3.select("body").selectAll("li")
+        			.data(mostInfluentialWordsAlone)
+        			.text(function(d,i){return i + ": " + d.word + " - " + d.weight;})
+        	
+        	for(var val in mostInfluentialWordsOverall){
+        		var wordObj = mostInfluentialWordsOverall[val];
+        		console.log(wordObj.word + " " + wordObj.weight);
+        		d3.select("body").select("#overall_list").append("li");
+        	}
+        	var np = d3.select("body").selectAll("li")
+        			.data(mostInfluentialWordsOverall)
+        			.text(function(d,i){return i + ": " + d.word + " - " + d.weight;})
+        }
+
         function calculateCandidate (){
-        	var trumpCount = 0;
-        	var hillaryCount = 0;
         	var yValue = 0.0;
         	yValues = [];
         	for (var i = 0; i < inputWords.length; i++) {
         		var word = inputWords[i];
         		if (word.length < 1) continue;
-        		if (trumpWords[word] != null) {
-        			trumpCount += trumpWords[word];
+        		if (isTrumpWord(word)) {
         			yValue += trumpWords[word];
-        		} else if (hillaryWords[word] != null) {
-        			hillaryCount += hillaryWords[word];
-        			console.log("Hillary word");
+        		} else if (isHillaryWord(word)) {
         			yValue -= hillaryWords[word];
         		}
         		yValues[i] = yValue;
-        		console.log()
         	};
+
         	displayLines();
+
         }
+
+        function isHillaryWord(word){
+			if (hillaryWords[word] != null) return true;
+			return false;
+		}
+
+		function isTrumpWord(word){
+			if (trumpWords[word] != null) return true;
+			return false;
+		}
+
+		function calculateMostInfluentialWords (wordMaps){
+			var wordScores = {};
+			var aloneWords = [];
+			var overallWords = [];
+
+			for (var i = 0; i < inputWords.length; i++) {
+				var w = inputWords[i];
+				if (w.length < 1) continue;
+		                for (var j = 0; j < wordMaps.length; j++) {
+		                        wordMap = wordMaps[j];
+		                        var score = wordMap[w];
+		                        if (score != null) {
+		                                if (wordScores[w] == null) {
+		                                        wordScores[w] = parseFloat(score);
+		                                } else {
+		                                        wordScores[w] += parseFloat(score);
+		                                }
+		                                var inserted = false;
+		                                for (var k = 0; k < aloneWords.length; k++) {
+		                                        if(aloneWords[k].weight < score) {
+		                                                aloneWords.splice(k, 0, {word: w, weight:score});
+		                                                inserted = true;
+		                                                break;
+		                                        }
+		                                }
+		                                if (!inserted && aloneWords.length < 10) {
+		                                      aloneWords.push({word: w, weight:score}); 
+		                                };
+		                                if (aloneWords.length > 10) {
+		                                        aloneWords.splice(-1,1);
+		                                }
+		                        }   
+		                };
+			};
+	    	for(var val in wordScores){
+	                var inserted = false;
+	                score = wordScores[val];
+	                for (var k = 0; k < overallWords.length; k++) {
+	                        if(overallWords[k].weight < score) {
+	                                overallWords.splice(k, 0, {word: val, weight:score});
+	                                inserted = true;
+	                                break;
+	                        }
+	                }
+	                if (!inserted && overallWords.length < 10) {
+	                      overallWords.push({word: val, weight:score}); 
+	                };
+	                if (overallWords.length > 10) {
+	                        overallWords.splice(-1,1);
+	                }
+	        }
+	       	mostInfluentialWordsAlone = aloneWords;
+		    mostInfluentialWordsOverall = overallWords;
+		}
 
 	</script>
 </body>
