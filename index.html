@@ -5,23 +5,44 @@
 </script>
     <style>
         body {font-family: monospace; line-height: 160%; font-size: 18px; }
+        div#list {display: inline-block;}
         ul {list-style: none; margin: 0; padding: 0; display: inline-block;}
         li {display: block; min-width: 80px; padding: 10px; margin: 0;}
         input {border: 1px dotted #ccc; background: white; font-family: monospace; padding: 10px 20px; font-size: 18px; margin: 20px 10px 20px 0; color: gray;}
         input:focus { background-color:lightgray; outline: none;}
+		#buttons, #help_text{display:inline;}
+		#help_text{float:right;}
     </style>
 </head>
 <body>
- 	<form name="myform" onSubmit="return handleClick()">
-        <input name="Submit"  type="submit" value="Add to list" >
-        <input type="text" id="myVal" placeholder="Add some text&hellip;">
-    </form>
+	<h1>Drillary Clump Rhetoricizer</h1>
+	<div class="container">
+		<div id="buttons">
+			<form name="myform" onSubmit="return handleClick()">
+				<input type="text" id="myVal" style="width: 338px" placeholder="Add some text&hellip;">
+				<input name="Submit"  type="submit" value="Add to list" style="width: 159px" >
+			</form>
+			<form name="myform" onSubmit="return handleFile()">
+				<input name="Select a txt file" id="txtFile" type="file" />
+				<input name="Submit"  type="submit" value="Analyze file" >
+			</form>
+		</div>
+		<div id="help_text">
+			<p>Welcome to the Drillary Clump Rhetoricizer! Enter in some text to the text box, or select a text</p>
+			<p>file from your computer. The Rhetoricizer will analyze word by word to determine whether the rhetoric</p>
+			<p>of the text you entered is more aligned with the rhetoric used by Hillary Clinton or Donald Trump.</p>
+		</div>
+	</div>
 	<div	id="visualization_area"></div>	
-	<ul id="overall_list"></ul>
-	<ul id="individual_list"></ul>
-	<div	id="text_area"></div>	
+	<div id="list">
+		<h4>Influential Words Overall</h4>
+		<ul id="overall_list"></ul>
+	</div>
+	<div id="list">
+		<h4>Influential Words Individually</h4>
+		<ul id="individual_list"></ul>	
+	</div>
 	<script>
-
 		var WIDTH = 900;
 		var HEIGHT = 400;
 	    var MARGINS = {
@@ -43,6 +64,8 @@
 		var yAxis;
 		var inputText;
 		var inputWords;
+		var totalPercent;
+		var textColor;
 		loadData();
 		layoutGraph();
 
@@ -114,16 +137,25 @@
 				.attr("class","yaxis")
 				.attr("transform", "translate(" + (MARGINS.left) + ",0)")
 			  	.call(yAxis);
+				
+			graph.append("text")
+				 .attr("x", (WIDTH/2) + "px")
+				 .attr("dy", (HEIGHT) + "px")
+				 .text("yee");
+			
 		};
 
 		function displayLines() {
 
 			d3.selectAll("path")
 		        		.remove();
+			d3.selectAll("text")
+						.remove();
 
 			var maxY = -1;
 			for (var i = 0; i < yValues.length; i++) {
 				var yVal = yValues[i];
+				if(isNaN(yVal)) yValues[i] = yValues[i-1];//fix any werid punctuation that isn't being parsed
 				if (Math.abs(yVal) > maxY) {
 					maxY = Math.abs(yVal);
 				};
@@ -154,74 +186,150 @@
 			    .y(function(d) {
 			        return newyScale(d);
 			    });
+			
+			var centerGen = d3.line()
+				.x(function(d, i) {
+					return newxScale(i);
+				})
+				.y(function(d) {
+					return newyScale(-.008);//if its straight 0 it looks a little wrong
+				});
 
 			var line = graph.append('path')
 							.attr('d', lineGen(yValues))
 							.attr('stroke', 'purple')
-							.attr('stroke-width', 5)
+							.attr('stroke-width', 2) 
 							.attr('fill', 'none')
 							.attr('id', "path")
 							.attr('name', name);
+			
+			graph.append("text")
+				 .attr("x", newxScale(yValues.length - 1) + "px")
+				 .attr("dy", newyScale(yValues[yValues.length - 1]) + "px")
+				 .attr("text-anchor", "start")
+				 .attr('id', 'text')
+				 .style("fill", textColor)
+				 .text("" + totalPercent + "%");
+							
+			var centerLine = graph.append('path')
+								  .attr('d', centerGen(yValues))
+								  .attr('stroke', 'green')
+								  .attr('stroke-width', 1)
+								  .style("stroke-dasharray", ("3, 3")) 
+								  .attr('fill', 'none')
+								  .attr('id', "path")
+								  .attr('name', name);
 		}
- 
-        function handleClick(event){
-        	inputText = document.getElementById("myVal").value;
-        	inputWords = [];
+		
+		function handleText(){
+			inputWords = [];
         	inputWords = inputText.split(/[.,\/ -]/);
+			console.log(inputWords.toString());
             calculateCandidate();
             calculateMostInfluentialWords([hillaryWords, trumpWords]);
             draw();
             return false;
+		}
+ 
+        function handleClick(event){
+        	inputText = document.getElementById("myVal").value;
+        	return handleText();
         }
+		
+		function handleFile(event){
+			var fileObj = document.getElementById("txtFile");
+			if(fileObj.files.length == 0){//should also handle more than 1 file
+				console.log("nope");
+			} else {
+				var file = fileObj.files[0];
+				var reader = new FileReader();
+				reader.onload = function(e) {
+					inputText = reader.result;
+					return handleText();
+				}
+				reader.readAsText(file);
+			}
+			return false;
+		}
 
         function printWords() {
-        	console.log(mostInfluentialWordsAlone);
-        	console.log(mostInfluentialWordsOverall);
         	for(var val in mostInfluentialWordsAlone){
         		var wordObj = mostInfluentialWordsAlone[val];
-        		console.log(wordObj.word + " " + wordObj.weight);
         	}
         	for(var val in mostInfluentialWordsOverall){
         		var wordObj = mostInfluentialWordsOverall[val];
-        		console.log(wordObj.word + " " + wordObj.weight);
         	}
 
         }
 
         function draw(val){
+			var indList = document.getElementById("#individual_list");
+			var ovList = document.getElementById("#overall_list");
+			
+			if(!indList) console.log("individual was null"); //problem: lists have items in them stuck from prior phrases entered, trying to clear them here
+			else {
+				while( indList.firstChild ){
+					indList.removeChild( indList.firstChild );
+				}
+			}
+			
+			if(!ovList) console.log("overall was null");
+			else {
+				while( ovList.firstChild ){
+					ovList.removeChild( ovList.firstChild );
+				}
+			
+			}
+			
         	for(var val in mostInfluentialWordsAlone){
         		var wordObj = mostInfluentialWordsAlone[val];
-        		console.log(wordObj.word + " " + wordObj.weight);
         		d3.select("body").select("#individual_list").append("li");
         	}
         	var p = d3.select("body").selectAll("li")
         			.data(mostInfluentialWordsAlone)
-        			.text(function(d,i){return i + ": " + d.word + " - " + d.weight;})
+        			.text(function(d,i){return parseInt(i + 1) + ": " + d.word + " - " + d.weight;})
+					.style("border", "solid");
         	
         	for(var val in mostInfluentialWordsOverall){
         		var wordObj = mostInfluentialWordsOverall[val];
-        		console.log(wordObj.word + " " + wordObj.weight);
         		d3.select("body").select("#overall_list").append("li");
         	}
         	var np = d3.select("body").selectAll("li")
         			.data(mostInfluentialWordsOverall)
-        			.text(function(d,i){return i + ": " + d.word + " - " + d.weight;})
+        			.text(function(d,i){return parseInt(i + 1) + ": " + d.word + " - " + d.weight;})
+					.style("border", "solid");
         }
+		
+		function calculateTotalPercentage(trumpSum, hillarySum){
+			totalPercent = 0;
+			if(trumpSum > hillarySum){
+				textColor = "red";
+				totalPercent = (trumpSum/(hillarySum + trumpSum)) * 100;
+			} else {
+				textColor = "blue";
+				totalPercent = (hillarySum/(hillarySum + trumpSum)) * 100;
+			}
+			totalPercent = Math.round(totalPercent);
+		}
 
         function calculateCandidate (){
         	var yValue = 0.0;
+			var trumpSum = 0;
+			var hillarySum = 0;
         	yValues = [];
         	for (var i = 0; i < inputWords.length; i++) {
         		var word = inputWords[i];
         		if (word.length < 1) continue;
         		if (isTrumpWord(word)) {
         			yValue += trumpWords[word];
+					trumpSum += trumpWords[word];
         		} else if (isHillaryWord(word)) {
         			yValue -= hillaryWords[word];
+					hillarySum += hillaryWords[word];
         		}
         		yValues[i] = yValue;
         	};
-
+			calculateTotalPercentage(trumpSum, hillarySum);
         	displayLines();
 
         }
@@ -254,6 +362,15 @@
 		                                        wordScores[w] += parseFloat(score);
 		                                }
 		                                var inserted = false;
+		                                for(var index in aloneWords){
+		                                	var obj = aloneWords[index];
+		                                	if (obj.word == w) {
+		                                		inserted = true;
+		                                	}
+		                                }
+		                                if (inserted) {
+		                                	continue;
+		                                };
 		                                for (var k = 0; k < aloneWords.length; k++) {
 		                                        if(aloneWords[k].weight < score) {
 		                                                aloneWords.splice(k, 0, {word: w, weight:score});
@@ -290,7 +407,7 @@
 	       	mostInfluentialWordsAlone = aloneWords;
 		    mostInfluentialWordsOverall = overallWords;
 		}
-
 	</script>
+	
 </body>
 </html>
