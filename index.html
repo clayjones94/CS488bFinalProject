@@ -7,7 +7,7 @@
         body {font-family: monospace; line-height: 160%; font-size: 18px; }
         div#list {display: inline-block;}
         ul {list-style: none; margin: 0; padding: 0; display: inline-block;}
-        li {display: block; min-width: 80px; padding: 10px; margin: 0;}
+        li {display: block; min-width: 80px; padding: 2px; margin: 2px;}
         input {border: 1px dotted #ccc; background: white; font-family: monospace; padding: 10px 20px; font-size: 18px; margin: 20px 10px 20px 0; color: gray;}
         input:focus { background-color:lightgray; outline: none;}
 		#buttons, #help_text{display:inline;}
@@ -224,7 +224,6 @@
 		function handleText(){
 			inputWords = [];
         	inputWords = inputText.split(/[.,\/ -]/);
-			console.log(inputWords.toString());
             calculateCandidate();
             calculateMostInfluentialWords([hillaryWords, trumpWords]);
             draw();
@@ -263,32 +262,55 @@
         }
 
         function draw(val){
-			var indList = document.getElementById("#individual_list");
-			var ovList = document.getElementById("#overall_list");
+			var indList = d3.select("body").selectAll("li").remove();
+			// var ovList = document.getElementById("#overall_list");
 			
-			if(!indList) console.log("individual was null"); //problem: lists have items in them stuck from prior phrases entered, trying to clear them here
-			else {
-				while( indList.firstChild ){
-					indList.removeChild( indList.firstChild );
-				}
-			}
+			// if(!indList) console.log("individual was null"); //problem: lists have items in them stuck from prior phrases entered, trying to clear them here
+			// else {
+			// 	while( indList.firstChild ){
+			// 		indList.removeChild( indList.firstChild );
+			// 	}
+			// }
 			
-			if(!ovList) console.log("overall was null");
-			else {
-				while( ovList.firstChild ){
-					ovList.removeChild( ovList.firstChild );
-				}
+			// if(!ovList) console.log("overall was null");
+			// else {
+			// 	while( ovList.firstChild ){
+			// 		ovList.removeChild( ovList.firstChild );
+			// 	}
 			
-			}
+			// }
 			
         	for(var val in mostInfluentialWordsAlone){
         		var wordObj = mostInfluentialWordsAlone[val];
         		d3.select("body").select("#individual_list").append("li");
         	}
+
+        	var backgroundColorTest =  function(d,i){
+						if (isTrumpWord(d.word)) {
+							return "red";
+						} else if(isHillaryWord(d.word)) {
+							return "blue";
+						} else {
+							return "black";
+						}
+					};
+
+			var textColorTest =  function(d,i){
+						if (isTrumpWord(d.word)) {
+							return "black";
+						} else if(isHillaryWord(d.word)) {
+							return "white";
+						} else {
+							return "black";
+						}
+					};
+
         	var p = d3.select("body").selectAll("li")
         			.data(mostInfluentialWordsAlone)
         			.text(function(d,i){return parseInt(i + 1) + ": " + d.word + " - " + d.weight;})
-					.style("border", "solid");
+					.style("border", "none")
+					.style("background-color",backgroundColorTest)
+					.style("color",textColorTest);
         	
         	for(var val in mostInfluentialWordsOverall){
         		var wordObj = mostInfluentialWordsOverall[val];
@@ -297,7 +319,9 @@
         	var np = d3.select("body").selectAll("li")
         			.data(mostInfluentialWordsOverall)
         			.text(function(d,i){return parseInt(i + 1) + ": " + d.word + " - " + d.weight;})
-					.style("border", "solid");
+					.style("border", "none")
+					.style("background-color",backgroundColorTest)
+					.style("color",textColorTest);
         }
 		
 		function calculateTotalPercentage(trumpSum, hillarySum){
@@ -348,6 +372,8 @@
 			var wordScores = {};
 			var aloneWords = [];
 			var overallWords = [];
+			mostInfluentialWordsAlone = [];
+		    mostInfluentialWordsOverall = [];
 
 			for (var i = 0; i < inputWords.length; i++) {
 				var w = inputWords[i];
@@ -356,6 +382,9 @@
 		                        wordMap = wordMaps[j];
 		                        var score = wordMap[w];
 		                        if (score != null) {
+		                        		if (w === "the") {
+		                        			console.log("The found with score: " + score);
+		                        		};
 		                                if (wordScores[w] == null) {
 		                                        wordScores[w] = parseFloat(score);
 		                                } else {
